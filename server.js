@@ -107,6 +107,92 @@ const enrollmentSchema = new mongoose.Schema({
   }
 });
 
+
+
+const paymentSchema = new mongoose.Schema({
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    required: true
+  },
+  courseId: {
+    type: Number,
+    required: true
+  },
+  amount: {
+    type: Number,
+    required: true
+  },
+  status: {
+    type: String,
+    enum: ["SUCCESS", "FAILED"],
+    default: "FAILED"
+  },
+  paymentDate: {
+    type: Date,
+    default: Date.now
+  }
+});
+const Payment = mongoose.model("Payment", paymentSchema);
+
+
+
+
+app.post("/api/payments", async (req, res) => {
+  try {
+    const payment = await Payment.create({
+      studentId: req.body.studentId,
+      courseId: req.body.courseId,
+      amount: req.body.amount,
+      status: req.body.status
+    });
+
+    if (payment.status === "SUCCESS") {
+      await Enrollment.create({
+        studentId: payment.studentId,
+        courseId: payment.courseId
+      });
+    }
+
+    res.status(201).json(payment);
+  } catch (error) {
+    res.status(400).json({
+      message: "Payment failed",
+      error: error.message
+    });
+  }
+});
+app.get("/api/payments/student/:studentId", async (req, res) => {
+  try {
+    const payments = await Payment.find({
+      studentId: req.params.studentId
+    }).populate("studentId");
+
+    res.json(payments);
+  } catch (error) {
+    res.status(400).json({
+      message: "Failed to get payment history",
+      error: error.message
+    });
+  }
+});
+app.get("/api/my-courses/:studentId", async (req, res) => {
+  try {
+    const enrollments = await Enrollment.find({
+      studentId: req.params.studentId
+    }).populate("studentId");
+
+    res.json(enrollments);
+  } catch (error) {
+    res.status(400).json({
+      message: "Failed to get my courses",
+      error: error.message
+    });
+  }
+});
+
+
+
 const Enrollment = mongoose.model("Enrollment", enrollmentSchema);
 app.post("/api/enrollments", async (req, res) => {
   try {
@@ -338,6 +424,30 @@ app.get("/api/health", (req, res) => {
     status: "OK",
     message: "E-Learning backend is running"
   });
+});
+app.post("/api/payments", async (req, res) => {
+  try {
+    const payment = await Payment.create({
+      studentId: req.body.studentId,
+      courseId: req.body.courseId,
+      amount: req.body.amount,
+      status: req.body.status
+    });
+
+    if (payment.status === "SUCCESS") {
+      await Enrollment.create({
+        studentId: payment.studentId,
+        courseId: payment.courseId
+      });
+    }
+
+    res.status(201).json(payment);
+  } catch (error) {
+    res.status(400).json({
+      message: "Payment failed",
+      error: error.message
+    });
+  }
 });
 
 app.listen(PORT, () => {

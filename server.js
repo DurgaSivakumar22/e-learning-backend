@@ -89,6 +89,23 @@ const studentSchema = new mongoose.Schema({
   rollNumber: String,
   age: Number
 });
+const instructorSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
+  expertise: {
+    type: String,
+    required: true
+  },
+  experience: {
+    type: Number,
+    required: true
+  }
+});
+
+const Instructor = mongoose.model("Instructor", instructorSchema);
 
 const Student = mongoose.model("Student", studentSchema);
 const enrollmentSchema = new mongoose.Schema({
@@ -369,6 +386,228 @@ app.post("/api/courses", (req, res) => {
   courses.push(course);
 
   res.status(201).json(course);
+});
+app.post("/api/instructor/courses", async (req, res) => {
+  try {
+    if (!req.body.title || !req.body.description || !req.body.instructorId) {
+  return res.status(400).json({
+    message: "Title, description and instructorId are required"
+  });
+}
+    const course = {
+      id: courses.length + 1,
+      title: req.body.title,
+      description: req.body.description,
+      instructorId: req.body.instructorId
+    };
+
+    courses.push(course);
+
+    res.status(201).json(course);
+  } catch (error) {
+    res.status(400).json({
+      message: "Course creation failed",
+      error: error.message
+    });
+  }
+});
+app.put("/api/instructor/courses/:id", async (req, res) => {
+  try {
+    const course = courses.find(
+      item => item.id === Number(req.params.id)
+    );
+
+    if (!course) {
+      return res.status(404).json({
+        message: "Course not found"
+      });
+    }
+
+    course.title = req.body.title || course.title;
+    course.description = req.body.description || course.description;
+    course.instructorId = req.body.instructorId || course.instructorId;
+
+    res.json(course);
+  } catch (error) {
+    res.status(400).json({
+      message: "Course update failed",
+      error: error.message
+    });
+  }
+});
+app.delete("/api/instructor/courses/:id", async (req, res) => {
+  try {
+    const index = courses.findIndex(
+      item => item.id === Number(req.params.id)
+    );
+
+    if (index === -1) {
+      return res.status(404).json({
+        message: "Course not found"
+      });
+    }
+
+    const deletedCourse = courses.splice(index, 1);
+
+    res.json({
+      message: "Course deleted successfully",
+      course: deletedCourse[0]
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: "Course deletion failed",
+      error: error.message
+    });
+  }
+});
+app.delete("/api/admin/users/:id", async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found"
+      });
+    }
+
+    res.json({
+      message: "User deleted successfully",
+      user
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: "User deletion failed",
+      error: error.message
+    });
+  }
+});
+app.get("/api/admin/users", async (req, res) => {
+  try {
+    const users = await User.find();
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to get users",
+      error: error.message
+    });
+  }
+});
+app.get("/api/admin/courses", (req, res) => {
+  try {
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to get courses",
+      error: error.message
+    });
+  }
+});
+app.delete("/api/admin/courses/:id", (req, res) => {
+  try {
+    const index = courses.findIndex(
+      item => item.id === Number(req.params.id)
+    );
+
+    if (index === -1) {
+      return res.status(404).json({
+        message: "Course not found"
+      });
+    }
+
+    const deletedCourse = courses.splice(index, 1);
+
+    res.json({
+      message: "Course deleted successfully",
+      course: deletedCourse[0]
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: "Course deletion failed",
+      error: error.message
+    });
+  }
+});
+const notificationSchema = new mongoose.Schema({
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
+  title: {
+    type: String,
+    required: true
+  },
+  message: {
+    type: String,
+    required: true
+  },
+  type: {
+    type: String,
+    default: "GENERAL"
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const Notification = mongoose.model("Notification", notificationSchema);
+app.post("/api/notifications", async (req, res) => {
+  try {
+    if (!req.body.userId || !req.body.title || !req.body.message) {
+  return res.status(400).json({
+    message: "userId, title and message are required"
+  });
+}
+    const notification = await Notification.create({
+      userId: req.body.userId,
+      title: req.body.title,
+      message: req.body.message,
+      type: req.body.type
+    });
+
+    res.status(201).json(notification);
+  } catch (error) {
+    res.status(400).json({
+      message: "Notification creation failed",
+      error: error.message
+    });
+  }
+});
+app.get("/api/notifications/:userId", async (req, res) => {
+  try {
+    const notifications = await Notification.find({
+      userId: req.params.userId
+    }).sort({ createdAt: -1 });
+
+    res.json(notifications);
+  } catch (error) {
+    res.status(400).json({
+      message: "Failed to get notifications",
+      error: error.message
+    });
+  }
+});
+app.post("/api/notifications/course", async (req, res) => {
+  try {
+    const notification = await Notification.create({
+      userId: req.body.userId,
+      title: req.body.title,
+      message: req.body.message,
+      type: "COURSE"
+    });
+
+    res.status(201).json({
+      message: "Course notification sent successfully",
+      notification
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: "Course notification failed",
+      error: error.message
+    });
+  }
 });
 app.get("/api/courses", (req, res) => {
   res.json(courses);

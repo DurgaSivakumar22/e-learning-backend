@@ -91,6 +91,150 @@ const studentSchema = new mongoose.Schema({
 });
 
 const Student = mongoose.model("Student", studentSchema);
+const enrollmentSchema = new mongoose.Schema({
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    required: true
+  },
+  courseId: {
+    type: Number,
+    required: true
+  },
+  enrolledAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const Enrollment = mongoose.model("Enrollment", enrollmentSchema);
+app.post("/api/enrollments", async (req, res) => {
+  try {
+    const enrollment = await Enrollment.create({
+      studentId: req.body.studentId,
+      courseId: req.body.courseId
+    });
+
+    res.status(201).json(enrollment);
+  } catch (error) {
+    res.status(400).json({
+      message: "Enrollment creation failed",
+      error: error.message
+    });
+  }
+});
+app.get("/api/enrollments/student/:studentId", async (req, res) => {
+  try {
+    const enrollments = await Enrollment.find({
+      studentId: req.params.studentId
+    }).populate("studentId");
+
+    res.json(enrollments);
+  } catch (error) {
+    res.status(400).json({
+      message: "Failed to get enrolled courses",
+      error: error.message
+    });
+  }
+});
+const progressSchema = new mongoose.Schema({
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    required: true
+  },
+  courseId: {
+    type: Number,
+    required: true
+  },
+  lessonId: {
+    type: String,
+    required: true
+  },
+  completed: {
+    type: Boolean,
+    default: false
+  },
+  completedAt: {
+    type: Date
+  }
+});
+
+const Progress = mongoose.model("Progress", progressSchema);
+app.post("/api/progress", async (req, res) => {
+  try {
+    const progress = await Progress.create({
+      studentId: req.body.studentId,
+      courseId: req.body.courseId,
+      lessonId: req.body.lessonId,
+      completed: req.body.completed || false
+    });
+
+    res.status(201).json(progress);
+  } catch (error) {
+    res.status(400).json({
+      message: "Progress creation failed",
+      error: error.message
+    });
+  }
+});
+app.put("/api/progress/:id", async (req, res) => {
+  try {
+    const progress = await Progress.findByIdAndUpdate(
+      req.params.id,
+      {
+        completed: true,
+        completedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!progress) {
+      return res.status(404).json({
+        message: "Progress not found"
+      });
+    }
+
+    res.json(progress);
+  } catch (error) {
+    res.status(400).json({
+      message: "Progress update failed",
+      error: error.message
+    });
+  }
+});
+app.get("/api/progress/course/:studentId/:courseId", async (req, res) => {
+  try {
+    const progress = await Progress.find({
+      studentId: req.params.studentId,
+      courseId: req.params.courseId
+    });
+
+    const totalLessons = progress.length;
+    const completedLessons = progress.filter(
+      item => item.completed === true
+    ).length;
+
+    const percentage =
+      totalLessons === 0
+        ? 0
+        : (completedLessons / totalLessons) * 100;
+
+    res.json({
+      studentId: req.params.studentId,
+      courseId: req.params.courseId,
+      totalLessons,
+      completedLessons,
+      progressPercentage: percentage
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: "Failed to get course progress",
+      error: error.message
+    });
+  }
+});
+
 app.post("/api/students", async (req, res) => {
   try {
     const student = await Student.create({
